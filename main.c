@@ -3,6 +3,8 @@
 #include<unistd.h>
 #include<string.h>
 #include<getopt.h>
+#include<stdbool.h>
+#include<pthread.h>
 
 
 //option is a struct defined in getopt.h
@@ -12,6 +14,8 @@
 struct option long_options[] = {
 	{"bucket", required_argument, NULL, 'b'},
 	{"cache", required_argument, NULL, 'c'},
+	{"source", required_argument, NULL, 's'},
+	{"dryrun", required_argument, NULL, 'd'},
 	{0, 0, 0, 0}
 };
 
@@ -20,7 +24,9 @@ int main(int argc, char *argv[]){
 	
 	int opt;
 	char *bucket_name = (char *)malloc(129*sizeof(char));
-	char *cache_file= (char *)malloc(1025*sizeof(char));
+	char *cache_file = (char *)malloc(1025*sizeof(char));
+	char *source_path = (char *)malloc(1025*sizeof(char));
+	bool dryrun = false;
 
 	if(optarg){
 		printf("%s\n", optarg);
@@ -41,19 +47,35 @@ int main(int argc, char *argv[]){
 				break;
 
 			case 'c':
-				printf("getopt already reconized that there is no value for this argument\n");
 				str_len = strlen(optarg);
 				if(str_len>1){
 					memcpy(cache_file,optarg,str_len*sizeof(char));
 				}
 				break;
 
-			//TODO: keep adding other options! AND FINISH THIS PROGRAM EVEN IF IT TAKES A MONTH!
-			default:
-				printf("pos no se va a poder\n");
+			case 's':
+				str_len = strlen(optarg);
+				if(str_len>1){
+					memcpy(source_path,optarg,str_len*sizeof(char));
+				}
+				break;
+
+			case 'd':
+				//dry run flag
+				str_len = strlen(optarg);
+				if(str_len == 1 && !(strcmp(optarg,"yes") || strcmp(optarg,"true")) || strcmp(optarg,"y") || strcmp(optarg,"t") ){
+					dryrun = true;
+				}
 				break;
 
 
+
+			//TODO: keep adding other options! AND FINISH THIS PROGRAM EVEN IF IT TAKES A MONTH!
+			//TODO: add source file/directory
+			//TODO: add thread logic to run aws cli command
+			default:
+				printf("pos no se va a poder\n");
+				break;
 		}
 	}
 
@@ -62,8 +84,9 @@ int main(int argc, char *argv[]){
 	if(strlen(cache_file) < 1){
 		getcwd(cache_file, 1025*sizeof(char));
 	}
-	printf("this is cache file: %s\n",cache_file);
-	printf("this is bucket name: %s\n",bucket_name);
+	printf("this is cache file: %s\n", cache_file);
+	printf("this is bucket name: %s\n", bucket_name);
+	printf("this is source path: %s\n", source_path);
 
 	return 0;
 }
