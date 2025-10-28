@@ -5,6 +5,7 @@
 #include<getopt.h>
 #include<stdbool.h>
 #include<pthread.h>
+#include <errno.h>
 
 
 //option is a struct defined in getopt.h
@@ -87,6 +88,12 @@ int main(int argc, char *argv[]){
 	printf("this is cache file: %s\n", cache_file);
 	printf("this is bucket name: %s\n", bucket_name);
 	printf("this is source path: %s\n", source_path);
+
+	char *aws_ls_args[] = {
+		"aws", "s3", "ls", bucket_name, NULL
+	};
+	execvp("aws", aws_ls_args);
+	printf("errno: %d\n", errno);
 
 	return 0;
 }
