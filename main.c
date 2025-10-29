@@ -26,8 +26,12 @@ int main(int argc, char *argv[]){
 	int opt;
 	char *bucket_name = (char *)malloc(129*sizeof(char));
 	char *cache_file = (char *)malloc(1025*sizeof(char));
-	char *source_path = (char *)malloc(1025*sizeof(char));
+	char *sequences_file = (char *)malloc(1025*sizeof(char));
 	bool dryrun = false;
+	char *sequence_list[1024];
+	for(int c=0;c<1024;c++){
+		sequence_list[c] = (char *)malloc(1025*sizeof(char));
+	}
 
 	if(optarg){
 		printf("%s\n", optarg);
@@ -44,7 +48,7 @@ int main(int argc, char *argv[]){
 				size_t str_len = strlen(optarg);
 				if(str_len>1){
 					memcpy(bucket_name,optarg,strlen(optarg)*sizeof(char));
-				}
+}
 				break;
 
 			case 'c':
@@ -57,7 +61,7 @@ int main(int argc, char *argv[]){
 			case 's':
 				str_len = strlen(optarg);
 				if(str_len>1){
-					memcpy(source_path,optarg,str_len*sizeof(char));
+					memcpy(sequences_file,optarg,str_len*sizeof(char));
 				}
 				break;
 
@@ -87,11 +91,35 @@ int main(int argc, char *argv[]){
 	}
 	printf("this is cache file: %s\n", cache_file);
 	printf("this is bucket name: %s\n", bucket_name);
-	printf("this is source path: %s\n", source_path);
+	printf("this is sequences file: %s\n", sequences_file);
 
+
+	//read file line by line
+	//each line is read until you find a new line character :)
+	FILE *fd = fopen(sequences_file, "r");
+	if(! fd){
+		printf("whooops, error opening file %s\n", sequences_file);
+	}
+	else{
+		char eof = EOF;
+		int line = 0;
+		do{
+			int line_length = 0;
+			int c = 0;
+			char chara;
+			do{
+				//fread(&chara, 1, sizeof(char), fd);
+				//sequence_list[line][c] = chara;
+				fread(sequence_list[line]+c, 1, sizeof(char), fd);
+			}while((char)sequence_list[line][c] != '\n');
+
+		}while(eof != EOF);
+		fclose(fd);
+	}
 	char *aws_ls_args[] = {
 		"aws", "s3", "ls", bucket_name, NULL
 	};
+
 	execvp("aws", aws_ls_args);
 	printf("errno: %d\n", errno);
 
