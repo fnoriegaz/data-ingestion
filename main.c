@@ -24,6 +24,7 @@ struct option long_options[] = {
 int main(int argc, char *argv[]){
 	
 	int opt;
+	int n_sequences = 0;
 	char *bucket_name = (char *)malloc(129*sizeof(char));
 	char *cache_file = (char *)malloc(1025*sizeof(char));
 	char *sequences_file = (char *)malloc(1025*sizeof(char));
@@ -93,7 +94,6 @@ int main(int argc, char *argv[]){
 	printf("this is bucket name: %s\n", bucket_name);
 	printf("this is sequences file: %s\n", sequences_file);
 
-
 	//read file line by line
 	//each line is read until you find a new line character :)
 	FILE *fd = fopen(sequences_file, "r");
@@ -101,27 +101,33 @@ int main(int argc, char *argv[]){
 		printf("whooops, error opening file %s\n", sequences_file);
 	}
 	else{
-		char eof = EOF;
-		int line = 0;
-		do{
-			int line_length = 0;
-			int c = 0;
-			char chara;
-			do{
-				//fread(&chara, 1, sizeof(char), fd);
-				//sequence_list[line][c] = chara;
-				fread(sequence_list[line]+c, 1, sizeof(char), fd);
-			}while((char)sequence_list[line][c] != '\n');
-
-		}while(eof != EOF);
+		while(fgets(sequence_list[n_sequences], 1024, fd)){
+			printf("%s",sequence_list[n_sequences]);
+			n_sequences++;
+		}
 		fclose(fd);
 	}
-	char *aws_ls_args[] = {
-		"aws", "s3", "ls", bucket_name, NULL
-	};
 
-	execvp("aws", aws_ls_args);
-	printf("errno: %d\n", errno);
+	for(int c=0;c<n_sequences;c++){
+		char *s3_url = (char *)malloc(1024*sizeof(char));
+		int bucket_length = strlen(bucket_name);
+		int sequence_length = strlen(sequence_list[c]);
+		memcpy(s3_url,bucket_name,bucket_length*sizeof(char));
+		memcpy(s3_url+bucket_length,sequence_list[c],sequence_length*sizeof(char));
+	
+		char *aws_ls_args[] = {
+			"aws", "s3", "ls", s3_url, NULL
+		};
+		int pid = fork();
+		if(pid == 0){
+			printf("running aws s3 ls %s\n",s3_url);
+		}
+		else{
+			execvp("aws", aws_ls_args);
+			if(errno)printf("errno: %d\n", errno);
+		}
+	}
+
 
 	return 0;
 }
