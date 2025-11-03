@@ -25,7 +25,7 @@ int main(int argc, char *argv[]){
 	
 	int opt;
 	int n_sequences = 0;
-	char *bucket_name = (char *)malloc(129*sizeof(char));
+	char *bucket_name = (char *)malloc(257*sizeof(char));
 	char *cache_file = (char *)malloc(1025*sizeof(char));
 	char *sequences_file = (char *)malloc(1025*sizeof(char));
 	bool dryrun = false;
