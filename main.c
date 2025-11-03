@@ -44,7 +44,7 @@ int main(int argc, char *argv[]){
 		switch(opt){
 
 			case 'b':
-				//careful! strlen works because optarg is null terminated
+				//careful! strlen works because optarg is null terminate
 				//otherwise, it might be more difficult
 				size_t str_len = strlen(optarg);
 				if(str_len>1){
@@ -69,24 +69,18 @@ int main(int argc, char *argv[]){
 			case 'd':
 				//dry run flag
 				str_len = strlen(optarg);
-				if(str_len == 1 && !(strcmp(optarg,"yes") || strcmp(optarg,"true")) || strcmp(optarg,"y") || strcmp(optarg,"t") ){
+				if( !(strcmp(optarg,"yes") || strcmp(optarg,"true")) || strcmp(optarg,"y") || strcmp(optarg,"t") ){
 					dryrun = true;
 				}
 				break;
 
-
-
 			//TODO: keep adding other options! AND FINISH THIS PROGRAM EVEN IF IT TAKES A MONTH!
-			//TODO: add source file/directory
-			//TODO: add thread logic to run aws cli command
 			default:
 				printf("pos no se va a poder\n");
 				break;
 		}
 	}
 
-
-	//TODO: add logic to check if cache file exists and then open it to read contents.
 	if(strlen(cache_file) < 1){
 		getcwd(cache_file, 1025*sizeof(char));
 	}
@@ -115,15 +109,25 @@ int main(int argc, char *argv[]){
 		memcpy(s3_url,bucket_name,bucket_length*sizeof(char));
 		memcpy(s3_url+bucket_length,sequence_list[c],sequence_length*sizeof(char));
 	
-		char *aws_ls_args[] = {
-			"aws", "s3", "ls", s3_url, NULL
+		char *aws_ls_args_dryrun[7] = {
+			"aws", "s3", "cp", "--dryrun", s3_url, s3_url, NULL
+		};
+		char *aws_ls_args[6] = {
+			"aws", "s3", "cp", s3_url, s3_url, NULL
 		};
 		
 		int pid = fork();
 		if(0 == pid){
 			//as a reminder, this block is executed by child process
-			printf("running aws s3 ls %s\n",s3_url);
-			execvp("aws", aws_ls_args);
+			if(dryrun){
+				printf("running aws cmd:\n");
+				for(int c=0;c<sizeof(aws_ls_args_dryrun)-1;c++){printf("%s ",aws_ls_args_dryrun[c]);}
+				printf("\n");
+				execvp("aws", aws_ls_args_dryrun);
+			}
+			else{
+				execvp("aws", aws_ls_args);
+			}
 		}
 		else{
 			if(errno)printf("errno: %d\n", errno);
