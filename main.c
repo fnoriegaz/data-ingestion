@@ -118,12 +118,14 @@ int main(int argc, char *argv[]){
 		char *aws_ls_args[] = {
 			"aws", "s3", "ls", s3_url, NULL
 		};
+		
 		int pid = fork();
-		if(pid == 0){
+		if(0 == pid){
+			//as a reminder, this block is executed by child process
 			printf("running aws s3 ls %s\n",s3_url);
+			execvp("aws", aws_ls_args);
 		}
 		else{
-			execvp("aws", aws_ls_args);
 			if(errno)printf("errno: %d\n", errno);
 		}
 	}
