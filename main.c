@@ -8,6 +8,14 @@
 #include <errno.h>
 
 
+/*
+ * should call aws s3 rync local to s3 bucket.
+ * should be able to select specific frames to upload.
+ * chache file might not be necessary if rsync is executed(?) pending to confirm.
+ * if frames are not specified, default is to sync whole sequence.
+ * */
+
+
 //option is a struct defined in getopt.h
 //it helps creating an array of structs of type option
 //this is later used by thej getop_long fuction that can take options like:
@@ -17,6 +25,7 @@ struct option long_options[] = {
 	{"cache", required_argument, NULL, 'c'},
 	{"source", required_argument, NULL, 's'},
 	{"dryrun", required_argument, NULL, 'd'},
+	{"frames", required_argument, NULL, 'f'},
 	{0, 0, 0, 0}
 };
 
@@ -25,13 +34,19 @@ int main(int argc, char *argv[]){
 	
 	int opt;
 	int n_sequences = 0;
+	int n_frames = 0;
 	char *bucket_name = (char *)malloc(257*sizeof(char));
 	char *cache_file = (char *)malloc(1025*sizeof(char));
+	char *frames_file = (char *)malloc(1025*sizeof(char));
 	char *sequences_file = (char *)malloc(1025*sizeof(char));
 	bool dryrun = false;
 	char *sequence_list[1024];
+	char *frames_list[1024];
 	for(int c=0;c<1024;c++){
 		sequence_list[c] = (char *)malloc(1025*sizeof(char));
+	}
+	for(int c=0;c<1024;c++){
+		frames_list[c] = (char *)malloc(1025*sizeof(char));
 	}
 
 	if(optarg){
@@ -49,7 +64,7 @@ int main(int argc, char *argv[]){
 				size_t str_len = strlen(optarg);
 				if(str_len>1){
 					memcpy(bucket_name,optarg,strlen(optarg)*sizeof(char));
-}
+				}
 				break;
 
 			case 'c':
@@ -73,6 +88,13 @@ int main(int argc, char *argv[]){
 					dryrun = true;
 				}
 				break;
+			
+			case 'f': //f to pay respects
+				str_len = strlen(optarg);
+				if(str_len>1){
+					memcpy(frames_file,optarg,str_len*sizeof(char));
+				}
+				break;
 
 			//TODO: keep adding other options! AND FINISH THIS PROGRAM EVEN IF IT TAKES A MONTH!
 			default:
@@ -92,7 +114,7 @@ int main(int argc, char *argv[]){
 	//each line is read until you find a new line character :)
 	FILE *fd = fopen(sequences_file, "r");
 	if(! fd){
-		printf("whooops, error opening file %s\n", sequences_file);
+		printf("whooops, error opening sequences file \n");
 	}
 	else{
 		while(fgets(sequence_list[n_sequences], 1024, fd)){
@@ -102,32 +124,52 @@ int main(int argc, char *argv[]){
 		fclose(fd);
 	}
 
+	fd = fopen(frames_file, "r");
+	if(!fd){
+		printf("whooops, error opening frames file\n");
+	}
+	else{
+		while(fgets(frames_list[n_sequences], 1024, fd)){
+			printf("%s",frames_list[n_frames]);
+			n_frames++;
+		}
+		fclose(fd);
+	}
+
 	for(int c=0;c<n_sequences;c++){
 		char *s3_url = (char *)malloc(1024*sizeof(char));
 		int bucket_length = strlen(bucket_name);
 		int sequence_length = strlen(sequence_list[c]);
+		char *aws_args[7];
 		memcpy(s3_url,bucket_name,bucket_length*sizeof(char));
 		memcpy(s3_url+bucket_length,sequence_list[c],sequence_length*sizeof(char));
 	
-		char *aws_ls_args_dryrun[7] = {
-			"aws", "s3", "cp", "--dryrun", s3_url, s3_url, NULL
-		};
-		char *aws_ls_args[6] = {
-			"aws", "s3", "cp", s3_url, s3_url, NULL
-		};
+		if(dryrun){
+			aws_args[0] ="aws";
+			aws_args[1] = "s3";
+			aws_args[2] = "sync";
+			aws_args[3] = "--dryrun";
+			aws_args[4] = s3_url;
+			aws_args[5] = s3_url;
+			aws_args[6] = NULL;
+		}
+		else{
+			aws_args[0] ="aws";
+			aws_args[1] = "s3";
+			aws_args[2] = "sync";
+			aws_args[3] = s3_url;
+			aws_args[4] = s3_url;
+			aws_args[5] = NULL;
+		}
+
 		
 		int pid = fork();
 		if(0 == pid){
 			//as a reminder, this block is executed by child process
-			if(dryrun){
-				printf("running aws cmd:\n");
-				for(int c=0;c<sizeof(aws_ls_args_dryrun)-1;c++){printf("%s ",aws_ls_args_dryrun[c]);}
-				printf("\n");
-				execvp("aws", aws_ls_args_dryrun);
-			}
-			else{
-				execvp("aws", aws_ls_args);
-			}
+			printf("running aws cmd:\n");
+			for(int c=0;c<6;c++){printf("arg %d: %s ",c, aws_args[c]);}
+			printf("\n");
+			execvp("aws", aws_args);
 		}
 		else{
 			if(errno)printf("errno: %d\n", errno);
