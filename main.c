@@ -35,18 +35,25 @@ int main(int argc, char *argv[]){
 	int opt;
 	int n_sequences = 0;
 	int n_frames = 0;
+	int n_url = 0;
 	char *bucket_name = (char *)malloc(257*sizeof(char));
 	char *cache_file = (char *)malloc(1025*sizeof(char));
 	char *frames_file = (char *)malloc(1025*sizeof(char));
 	char *sequences_file = (char *)malloc(1025*sizeof(char));
 	bool dryrun = false;
 	char *sequence_list[1024];
+	char *s3_url_list[65536];
+	char *local_path_list[65536];
 	char *frames_list[1024];
 	for(int c=0;c<1024;c++){
 		sequence_list[c] = (char *)malloc(1025*sizeof(char));
 	}
 	for(int c=0;c<1024;c++){
 		frames_list[c] = (char *)malloc(1025*sizeof(char));
+	}
+	for(int c=0;c<65536;c++){
+		s3_url_list[c] = (char *)malloc(1025*sizeof(char));
+		local_path_list[c] = (char *)malloc(1025*sizeof(char));
 	}
 
 	if(optarg){
@@ -89,7 +96,7 @@ int main(int argc, char *argv[]){
 				}
 				break;
 			
-			case 'f': //f to pay respects
+			case 'f': //f to pay respects. list of frames to upload
 				str_len = strlen(optarg);
 				if(str_len>1){
 					memcpy(frames_file,optarg,str_len*sizeof(char));
@@ -106,9 +113,6 @@ int main(int argc, char *argv[]){
 	if(strlen(cache_file) < 1){
 		getcwd(cache_file, 1025*sizeof(char));
 	}
-	printf("this is cache file: %s\n", cache_file);
-	printf("this is bucket name: %s\n", bucket_name);
-	printf("this is sequences file: %s\n", sequences_file);
 
 	//read file line by line
 	//each line is read until you find a new line character :)
@@ -118,7 +122,6 @@ int main(int argc, char *argv[]){
 	}
 	else{
 		while(fgets(sequence_list[n_sequences], 1024, fd)){
-			printf("%s",sequence_list[n_sequences]);
 			n_sequences++;
 		}
 		fclose(fd);
@@ -130,39 +133,95 @@ int main(int argc, char *argv[]){
 	}
 	else{
 		while(fgets(frames_list[n_sequences], 1024, fd)){
-			printf("%s",frames_list[n_frames]);
 			n_frames++;
 		}
 		fclose(fd);
 	}
 
+
 	for(int c=0;c<n_sequences;c++){
+	//build list of s3 urls to sync
+		int found = 0;
+		int trail = 0;
+		int bucket_length = strlen(bucket_name);
+		int sequence_length = strlen(sequence_list[c]);
+		int p = sequence_length;
+		char delim = '/';
+		char *s3_url = (char *)calloc(1024,sizeof(char));
+		char *local_url = (char *)calloc(1024,sizeof(char));
+
+		memcpy(s3_url,bucket_name,bucket_length*sizeof(char));
+		memcpy(local_url,sequence_list[c],(sequence_length-1)*sizeof(char));
+
+		trail = sequence_list[c][p-2] == delim ? 1 : 0;
+
+		printf("init p: %d\n",p);
+		while(!found){
+			p--;
+			if(p < (sequence_length-2) && sequence_list[c][p] == delim){
+				found = 1;
+				printf("current p: %d\n",p);
+				//copy total-1 bytes to remove the new line character
+				memcpy(s3_url+bucket_length,sequence_list[c]+p,(sequence_length-p-1)*sizeof(char));
+				if(n_frames){
+					char *frame_str = (char *)calloc(9, sizeof(char));
+					for(int f=0;f<n_frames;f++){
+						sprintf(frame_str,"img_%.4d",f);
+						//check if there was trail slash
+						if(!trail){
+							memcpy(local_url+sequence_length,"/",sizeof(char));
+							memcpy(s3_url+bucket_length+sequence_length-p,"/",sizeof(char));
+						}
+						memcpy(local_url+sequence_length,frame_str,8*sizeof(char));
+						memcpy(s3_url+bucket_length+sequence_length-p,frame_str,8*sizeof(char));
+
+						memcpy(local_path_list[n_url],local_url,strlen(local_url)*sizeof(char));
+						memcpy(s3_url_list[n_url],s3_url,strlen(s3_url)*sizeof(char));
+						n_url++;
+					}
+				}
+				else{
+					memcpy(local_path_list[n_url],local_url,strlen(local_url)*sizeof(char));
+					memcpy(s3_url_list[n_url],s3_url,strlen(s3_url)*sizeof(char));
+					n_url++;
+				}
+			}
+		}
+
+	}
+
+	//int n_blocks = n_url / 8;
+	int current = 0;
+	for(int c=0;c<n_url;c++){
 		char *s3_url = (char *)malloc(1024*sizeof(char));
 		int bucket_length = strlen(bucket_name);
 		int sequence_length = strlen(sequence_list[c]);
 		char *aws_args[7];
 		memcpy(s3_url,bucket_name,bucket_length*sizeof(char));
 		memcpy(s3_url+bucket_length,sequence_list[c],sequence_length*sizeof(char));
-	
+
 		if(dryrun){
 			aws_args[0] ="aws";
 			aws_args[1] = "s3";
 			aws_args[2] = "sync";
 			aws_args[3] = "--dryrun";
-			aws_args[4] = s3_url;
-			aws_args[5] = s3_url;
+			aws_args[4] = local_path_list[c];
+			aws_args[5] = s3_url_list[c];
 			aws_args[6] = NULL;
 		}
 		else{
 			aws_args[0] ="aws";
 			aws_args[1] = "s3";
 			aws_args[2] = "sync";
-			aws_args[3] = s3_url;
-			aws_args[4] = s3_url;
+			aws_args[3] = local_path_list[c];
+			aws_args[4] = s3_url_list[c];
 			aws_args[5] = NULL;
 		}
 
-		
+		if(current >= 8){
+			wait(NULL);
+			current--;
+		}
 		int pid = fork();
 		if(0 == pid){
 			//as a reminder, this block is executed by child process
@@ -173,6 +232,7 @@ int main(int argc, char *argv[]){
 		}
 		else{
 			if(errno)printf("errno: %d\n", errno);
+			current++;
 		}
 	}
 
