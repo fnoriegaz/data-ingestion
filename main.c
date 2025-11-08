@@ -154,13 +154,11 @@ int main(int argc, char *argv[]){
 		memcpy(local_url,sequence_list[c],(sequence_length-1)*sizeof(char));
 
 		trail = sequence_list[c][p-2] == delim ? 1 : 0;
-
-		printf("init p: %d\n",p);
 		while(!found){
+
 			p--;
 			if(p < (sequence_length-2) && sequence_list[c][p] == delim){
 				found = 1;
-				printf("current p: %d\n",p);
 				//copy total-1 bytes to remove the new line character
 				memcpy(s3_url+bucket_length,sequence_list[c]+p,(sequence_length-p-1)*sizeof(char));
 				if(n_frames){
@@ -169,14 +167,18 @@ int main(int argc, char *argv[]){
 						sprintf(frame_str,"img_%.4d",f);
 						//check if there was trail slash
 						if(!trail){
-							memcpy(local_url+sequence_length,"/",sizeof(char));
-							memcpy(s3_url+bucket_length+sequence_length-p,"/",sizeof(char));
+							memcpy(local_url+sequence_length-1,"/",sizeof(char));
+							memcpy(s3_url+bucket_length+sequence_length-p-1,"/",sizeof(char));
+							memcpy(local_url+sequence_length,frame_str,8*sizeof(char));
+							memcpy(s3_url+bucket_length+sequence_length-p,frame_str,8*sizeof(char));
 						}
-						memcpy(local_url+sequence_length,frame_str,8*sizeof(char));
-						memcpy(s3_url+bucket_length+sequence_length-p,frame_str,8*sizeof(char));
+						else{
+							memcpy(local_url+sequence_length-1,frame_str,8*sizeof(char));
+							memcpy(s3_url+bucket_length+sequence_length-p-1,frame_str,8*sizeof(char));
+						}
 
-						memcpy(local_path_list[n_url],local_url,strlen(local_url)*sizeof(char));
-						memcpy(s3_url_list[n_url],s3_url,strlen(s3_url)*sizeof(char));
+						memcpy(local_path_list[n_url],local_url,(sequence_length+8)*sizeof(char));
+						memcpy(s3_url_list[n_url],s3_url,(bucket_length+sequence_length-p+8)*sizeof(char));
 						n_url++;
 					}
 				}
@@ -197,8 +199,8 @@ int main(int argc, char *argv[]){
 		int bucket_length = strlen(bucket_name);
 		int sequence_length = strlen(sequence_list[c]);
 		char *aws_args[7];
-		memcpy(s3_url,bucket_name,bucket_length*sizeof(char));
-		memcpy(s3_url+bucket_length,sequence_list[c],sequence_length*sizeof(char));
+		//memcpy(s3_url,bucket_name,bucket_length*sizeof(char));
+		//memcpy(s3_url+bucket_length,sequence_list[c],sequence_length*sizeof(char));
 
 		if(dryrun){
 			aws_args[0] ="aws";
